@@ -1,5 +1,5 @@
 # ROS2 Humble + Node.js 20 image for ros-panel server
-FROM osrf/ros:humble-desktop
+FROM ros:humble AS base
 
 SHELL ["/bin/bash", "-c"]
 

@@ -13,9 +13,11 @@ services:
     environment:
       PORT: "3000"
       SCHEMA_DIR: /app/.ros-panel-schemas
-      # Allow requests from the Vite dev server and any local origin
       CORS_ORIGINS: "http://localhost:5173,http://localhost:3001"
-    network_mode: host  # Required for ROS2 DDS discovery (multicast)
+      # Enable ROS2 DDS multicast over the host network on macOS/Linux
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   web:
@@ -27,9 +29,9 @@ services:
       - .:/app
       - node-modules:/app/node_modules
     environment:
-      # Point the frontend at the server on localhost (host network shared)
       VITE_SERVER_URL: "http://localhost:3000"
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    # 'vite build --watch' (the dev script) is library watch mode, not a dev server
+    command: sh -c "npm install && npm run dev"
     depends_on:
       - server
 
