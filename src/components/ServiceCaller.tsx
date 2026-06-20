@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
-import type { RJSFSchema } from '@rjsf/utils';
-import axios from 'axios';
 import { Spin, Alert, Typography } from 'antd';
 import { useRos } from '../context/RosContext';
 import { RosForm } from './Form';
+import { useRosEndpoint } from '../hooks/useRosEndpoint';
 
 interface ServiceCallerProps {
   service: string;
@@ -14,23 +12,7 @@ interface ServiceCallerProps {
 
 export function ServiceCaller({ service, title, onResponse, onError }: ServiceCallerProps) {
   const { serverUrl } = useRos();
-  const [schema, setSchema] = useState<RJSFSchema | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const name = service.startsWith('/') ? service.slice(1) : service;
-
-  useEffect(() => {
-    setSchema(null);
-    setError(null);
-    axios
-      .post(`${serverUrl}/add/service`, { name })
-      .then((res) => setSchema(res.data))
-      .catch((err: Error) => setError(err.message));
-
-    return () => {
-      axios.post(`${serverUrl}/delete/service`, { name }).catch(() => {});
-    };
-  }, [service, serverUrl, name]);
+  const { name, schema, error } = useRosEndpoint('service', service, serverUrl);
 
   if (error) return <Alert type="error" message={error} />;
   if (!schema) return <Spin tip="Connecting to service..." />;

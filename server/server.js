@@ -15,14 +15,17 @@ function extractPkgAndMsg(rosType) {
   return { pkg: parts[0], msg: parts[2] };
 }
 
+function findInGraph(entries, name) {
+  const match = entries.find(({ name: n }) => n === name || n === `/${name}`);
+  if (!match) throw new Error(`Not found in ROS graph: ${name}`);
+  return match;
+}
+
 async function addTopicPublisher(topicName, schemaDir) {
   const key = `topic#${topicName}`;
   if (managed[key]) return managed[key].schema;
 
-  const topics = node.getTopicNamesAndTypes();
-  const match = topics.find(({ name }) => name === topicName || name === `/${topicName}`);
-  if (!match) throw new Error(`Topic not found: ${topicName}`);
-
+  const match = findInGraph(node.getTopicNamesAndTypes(), topicName);
   const { pkg, msg } = extractPkgAndMsg(match.types[0]);
   const MessageType = rclnodejs.require(match.types[0]);
   const publisher = node.createPublisher(MessageType, topicName);
@@ -39,10 +42,7 @@ async function addServiceClient(serviceName, schemaDir) {
   const key = `service#${serviceName}`;
   if (managed[key]) return managed[key].schema;
 
-  const services = node.getServiceNamesAndTypes();
-  const match = services.find(({ name }) => name === serviceName || name === `/${serviceName}`);
-  if (!match) throw new Error(`Service not found: ${serviceName}`);
-
+  const match = findInGraph(node.getServiceNamesAndTypes(), serviceName);
   const { pkg, msg } = extractPkgAndMsg(match.types[0]);
   const client = node.createClient(match.types[0], serviceName);
   const ready = await client.waitForService(1000);
@@ -69,7 +69,7 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
   app.use(express.json());
   app.use(cors({ origin: corsOrigins, methods: ['GET', 'POST', 'OPTIONS'], allowedHeaders: ['Content-Type'] }));
 
-  // Serialize BigInt in responses
+  // Serialize BigInt values in responses
   app.use((_, res, next) => {
     const orig = res.json.bind(res);
     res.json = (body) => orig(JSON.parse(JSON.stringify(body, (__, v) => (typeof v === 'bigint' ? v.toString() : v))));
@@ -82,8 +82,7 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
 
   app.post('/add/topic', async (req, res) => {
     try {
-      const schema = await addTopicPublisher(stripLeadingSlash(req.body.name), schemaDir);
-      res.json(schema);
+      res.json(await addTopicPublisher(stripLeadingSlash(req.body.name), schemaDir));
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
@@ -91,8 +90,7 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
 
   app.post('/add/service', async (req, res) => {
     try {
-      const schema = await addServiceClient(stripLeadingSlash(req.body.name), schemaDir);
-      res.json(schema);
+      res.json(await addServiceClient(stripLeadingSlash(req.body.name), schemaDir));
     } catch (e) {
       res.status(500).json({ error: e.message });
     }

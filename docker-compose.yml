@@ -1,0 +1,38 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source for live edits without rebuilding
+      - ./bin:/app/bin
+      - ./server:/app/server
+      - schema-cache:/app/.ros-panel-schemas
+    environment:
+      PORT: "3000"
+      SCHEMA_DIR: /app/.ros-panel-schemas
+      # Allow requests from the Vite dev server and any local origin
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:3001"
+    network_mode: host  # Required for ROS2 DDS discovery (multicast)
+    restart: unless-stopped
+
+  web:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - node-modules:/app/node_modules
+    environment:
+      # Point the frontend at the server on localhost (host network shared)
+      VITE_SERVER_URL: "http://localhost:3000"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      - server
+
+volumes:
+  schema-cache:
+  node-modules:

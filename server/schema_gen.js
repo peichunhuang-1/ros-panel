@@ -215,6 +215,15 @@ export async function readMsgSchema(packageName, messageName, schemaDir) {
 }
 
 export async function readSrvSchema(packageName, serviceName, schemaDir) {
+  // Use pre-generated cache when available (generateAllSchemas stores { request, response })
+  if (schemaDir) {
+    const cached = path.join(schemaDir, `${packageName}__${serviceName}.json`);
+    if (fs.existsSync(cached)) {
+      const { request } = JSON.parse(fs.readFileSync(cached, 'utf-8'));
+      return { type: 'object', properties: request ?? {} };
+    }
+  }
+
   const paths = findFiles(packageName, 'srv', `${serviceName}.srv`);
   if (paths.length === 0) throw new Error(`Service file not found: ${packageName}/${serviceName}`);
   const specs = await parser.parseServiceFile(packageName, paths[0]);
