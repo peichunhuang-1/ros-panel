@@ -84,6 +84,49 @@ docker compose --profile frontend-test run --rm frontend-test
 
 ---
 
+## Publishing to npm
+
+### 1. Build the library
+
+Build runs inside Docker — no local Node.js install required.
+
+```bash
+docker compose --profile build-lib run --rm build-lib
+```
+
+This writes the compiled output to `dist/` on your host machine.
+
+### 2. Preview what will be published
+
+```bash
+npm pack --dry-run
+```
+
+The package ships `dist/` (compiled components + types), `server/` (Express API), `bin/` (CLI entry), `README.md`, and `LICENSE`.
+
+### 3. Log in and publish
+
+```bash
+npm login
+npm publish --ignore-scripts   # dist/ already built in step 1
+```
+
+`--ignore-scripts` skips the `prepublishOnly` build step since you already ran it in Docker.
+
+To publish a new version, bump the version first:
+
+```bash
+npm version patch   # or minor / major
+npm publish --ignore-scripts
+```
+
+> **Note:** If the name `ros-panel` is already taken on the public registry, use a scoped name instead — update the `"name"` field in `package.json` to `"@your-npm-username/ros-panel"` and pass `--access public` on first publish:
+> ```bash
+> npm publish --ignore-scripts --access public
+> ```
+
+---
+
 ## API reference
 
 | Method | Path | Description |

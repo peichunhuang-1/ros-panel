@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RJSFSchema } from '@rjsf/utils';
 import axios from 'axios';
-import { Layout, Menu, Empty, Typography } from 'antd';
+import { Badge, Layout, Menu, Space, Tag, Tooltip, Typography } from 'antd';
 import {
+  ApartmentOutlined,
   MessageOutlined,
-  TeamOutlined,
   CustomerServiceOutlined,
 } from '@ant-design/icons';
 import { useRos } from '../context/RosContext';
@@ -37,21 +37,29 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
   const [topics, setTopics]     = useState<RosEntry[]>([]);
   const [services, setServices] = useState<RosEntry[]>([]);
   const [active, setActive]     = useState<ActivePanel | null>(null);
+  const [connected, setConnected] = useState(false);
   const activeRef               = useRef<ActivePanel | null>(null);
 
-  // Poll ROS graph
   useEffect(() => {
-    const fetch = () => {
-      axios.get(`${serverUrl}/nodes`).then((r) => setNodes(r.data)).catch(() => {});
-      axios.get(`${serverUrl}/topics`).then((r) => setTopics(r.data)).catch(() => {});
-      axios.get(`${serverUrl}/services`).then((r) => setServices(r.data)).catch(() => {});
+    const poll = () => {
+      Promise.all([
+        axios.get(`${serverUrl}/nodes`),
+        axios.get(`${serverUrl}/topics`),
+        axios.get(`${serverUrl}/services`),
+      ])
+        .then(([n, t, s]) => {
+          setNodes(n.data as string[]);
+          setTopics(t.data as RosEntry[]);
+          setServices(s.data as RosEntry[]);
+          setConnected(true);
+        })
+        .catch(() => setConnected(false));
     };
-    fetch();
-    const id = setInterval(fetch, 2000);
+    poll();
+    const id = setInterval(poll, 2000);
     return () => clearInterval(id);
   }, [serverUrl]);
 
-  // Deregister on unmount
   useEffect(() => {
     return () => {
       if (activeRef.current) {
@@ -64,16 +72,14 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
 
   const handleSelect = async (type: PanelType, rawName: string) => {
     const name = rawName.startsWith('/') ? rawName.slice(1) : rawName;
-
     if (activeRef.current) {
       await axios
         .post(`${serverUrl}/delete/${activeRef.current.type}`, { name: activeRef.current.name })
         .catch(() => {});
     }
-
     try {
       const res = await axios.post(`${serverUrl}/add/${type}`, { name });
-      const panel: ActivePanel = { type, name, schema: res.data };
+      const panel: ActivePanel = { type, name, schema: res.data as RJSFSchema };
       activeRef.current = panel;
       setActive(panel);
     } catch (e) {
@@ -81,33 +87,77 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
     }
   };
 
+  const sectionLabel = (icon: React.ReactNode, text: string, count: number) => (
+    <Space size={6}>
+      {icon}
+      <span>{text}</span>
+      <Badge
+        count={count}
+        size="small"
+        style={{ backgroundColor: '#ffffff22', color: '#ffffffcc', boxShadow: 'none', fontSize: 10 }}
+      />
+    </Space>
+  );
+
   const menuItems = [
     {
       key: 'nodes',
-      icon: <TeamOutlined />,
-      label: 'Nodes',
-      children: nodes.map((n) => ({ key: n, label: n })),
+      label: sectionLabel(<ApartmentOutlined />, 'Nodes', nodes.length),
+      children: nodes.map((n) => ({
+        key: n,
+        label: <Tooltip title={n} placement="right"><span className="rp-menu-item">{n}</span></Tooltip>,
+      })),
     },
     {
       key: 'topics',
-      icon: <MessageOutlined />,
-      label: 'Topics',
-      children: topics.map((t) => ({ key: t.name, label: t.name })),
+      label: sectionLabel(<MessageOutlined />, 'Topics', topics.length),
+      children: topics.map((t) => ({
+        key: t.name,
+        label: <Tooltip title={t.name} placement="right"><span className="rp-menu-item">{t.name}</span></Tooltip>,
+      })),
     },
     {
       key: 'services',
-      icon: <CustomerServiceOutlined />,
-      label: 'Services',
-      children: services.map((s) => ({ key: s.name, label: s.name })),
+      label: sectionLabel(<CustomerServiceOutlined />, 'Services', services.length),
+      children: services.map((s) => ({
+        key: s.name,
+        label: <Tooltip title={s.name} placement="right"><span className="rp-menu-item">{s.name}</span></Tooltip>,
+      })),
     },
   ];
 
+  const typeTag = active?.type === 'topic'
+    ? <Tag color="green">publish</Tag>
+    : <Tag color="blue">call</Tag>;
+
   return (
     <Layout style={{ height: '100%', ...style }}>
-      <Sider theme="light" collapsible>
+      <Sider theme="dark" collapsible width={240} style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{
+          padding: '14px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}>
+          <Typography.Text style={{ color: '#fff', fontWeight: 700, fontSize: 13, letterSpacing: '0.05em' }}>
+            ROS PANEL
+          </Typography.Text>
+          <Badge
+            status={connected ? 'success' : 'error'}
+            text={
+              <Typography.Text style={{ color: connected ? '#52c41a' : '#ff4d4f', fontSize: 11 }}>
+                {connected ? 'live' : 'offline'}
+              </Typography.Text>
+            }
+          />
+        </div>
+
         <Menu
           mode="inline"
+          theme="dark"
           items={menuItems}
+          style={{ flex: 1, borderRight: 0, overflow: 'auto' }}
           onClick={({ key, keyPath }) => {
             const section = keyPath[1];
             if (section === 'topics') handleSelect('topic', key);
@@ -115,12 +165,16 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
           }}
         />
       </Sider>
-      <Content style={{ padding: 24, overflowY: 'auto' }}>
+
+      <Content style={{ padding: 32, overflowY: 'auto', background: '#f5f5f5' }}>
         {active ? (
-          <>
-            <Typography.Title level={4}>
-              {active.type === 'topic' ? 'Publish' : 'Call'}: {active.name}
-            </Typography.Title>
+          <div style={{ maxWidth: 640 }}>
+            <Space align="center" style={{ marginBottom: 24 }}>
+              {typeTag}
+              <Typography.Text style={{ fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+                {active.name}
+              </Typography.Text>
+            </Space>
             <RosForm
               schema={active.schema}
               type={active.type}
@@ -129,9 +183,16 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
               onResponse={onResponse}
               onError={onError}
             />
-          </>
+          </div>
         ) : (
-          <Empty description="Select a topic or service from the sidebar" />
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Space direction="vertical" align="center" style={{ opacity: 0.3 }}>
+              <ApartmentOutlined style={{ fontSize: 56, display: 'block' }} />
+              <Typography.Text style={{ fontSize: 14 }}>
+                {connected ? 'Select a topic or service' : 'Connecting to server…'}
+              </Typography.Text>
+            </Space>
+          </div>
         )}
       </Content>
     </Layout>

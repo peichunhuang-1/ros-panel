@@ -45,6 +45,20 @@ services:
     profiles:
       - frontend-test
 
+  build-lib:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-test
+    volumes:
+      - ./src:/app/src
+      - ./dist:/app/dist
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./vite.config.ts:/app/vite.config.ts
+    command: ["npm", "run", "build"]
+    profiles:
+      - build-lib
+
   demo:
     build:
       context: .
