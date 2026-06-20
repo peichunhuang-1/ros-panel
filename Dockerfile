@@ -15,6 +15,10 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --omit=dev 2>/dev/null || npm install
 
+# Generate rclnodejs JS bindings from the ROS2 message definitions
+RUN source /opt/ros/humble/setup.bash && \
+    node node_modules/rclnodejs/scripts/generate_messages.js
+
 # Copy server source
 COPY bin/ ./bin/
 COPY server/ ./server/
