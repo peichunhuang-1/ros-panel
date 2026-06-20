@@ -21,6 +21,20 @@ function findInGraph(entries, name) {
   return match;
 }
 
+// rclnodejs has no built-in action server discovery; derive from services
+// ending in /_action/send_goal (e.g. /fibonacci/_action/send_goal →
+// action name /fibonacci, type example_interfaces/action/Fibonacci).
+function getActionNamesAndTypes() {
+  const result = [];
+  for (const { name, types } of node.getServiceNamesAndTypes()) {
+    if (!name.endsWith('/_action/send_goal')) continue;
+    const actionName = name.slice(0, -'/_action/send_goal'.length);
+    const [pkg, , msgName] = types[0].split('/');
+    result.push({ name: actionName, types: [`${pkg}/action/${msgName.replace(/_SendGoal$/, '')}`] });
+  }
+  return result;
+}
+
 async function addTopicPublisher(topicName, schemaDir) {
   const key = `topic#${topicName}`;
   if (managed[key]) return managed[key].schema;
@@ -61,7 +75,7 @@ async function addActionClient(actionName, schemaDir) {
   const key = `action#${actionName}`;
   if (managed[key]) return managed[key].schema;
 
-  const match = findInGraph(node.getActionServerNamesAndTypes(), actionName);
+  const match = findInGraph(getActionNamesAndTypes(), actionName);
   const { pkg, msg } = extractPkgAndMsg(match.types[0]);
   const client = new rclnodejs.ActionClient(node, match.types[0], actionName);
   const ready = await client.waitForServer(1000);
@@ -93,10 +107,15 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
   app.use(express.json());
   app.use(cors({ origin: corsOrigins, methods: ['GET', 'POST', 'OPTIONS'], allowedHeaders: ['Content-Type'] }));
 
-  // Serialize BigInt values in responses
+  // Serialize BigInt and TypedArray values in responses
+  const replacer = (_, v) => {
+    if (typeof v === 'bigint') return v.toString();
+    if (ArrayBuffer.isView(v) && !(v instanceof DataView)) return Array.from(v);
+    return v;
+  };
   app.use((_, res, next) => {
     const orig = res.json.bind(res);
-    res.json = (body) => orig(JSON.parse(JSON.stringify(body, (__, v) => (typeof v === 'bigint' ? v.toString() : v))));
+    res.json = (body) => orig(JSON.parse(JSON.stringify(body, replacer)));
     next();
   });
 
@@ -104,7 +123,7 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
   app.get('/nodes',    (_, res) => res.json(node.getNodeNames()));
   app.get('/topics',   (_, res) => res.json(node.getTopicNamesAndTypes()));
   app.get('/services', (_, res) => res.json(node.getServiceNamesAndTypes()));
-  app.get('/actions',  (_, res) => res.json(node.getActionServerNamesAndTypes()));
+  app.get('/actions',  (_, res) => res.json(getActionNamesAndTypes()));
 
   app.post('/add/topic', async (req, res) => {
     try {
@@ -141,7 +160,7 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
     res.flushHeaders();
 
     const send = (event, data) =>
-      res.write(`event: ${event}\ndata: ${JSON.stringify(data, (_, v) => (typeof v === 'bigint' ? v.toString() : v))}\n\n`);
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data, replacer)}\n\n`);
 
     try {
       const goalHandle = await entry.client.sendGoal(form, (feedback) => send('feedback', feedback));

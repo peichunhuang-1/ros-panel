@@ -26,7 +26,10 @@
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
     "server": "node bin/server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:api": "node --test test/server_api.test.js",
+    "test:components": "vitest run",
+    "demo": "vite --host"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -47,15 +50,20 @@
   },
   "devDependencies": {
     "@ant-design/icons": "^5.5.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.5.2",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
     "antd": "^5.24.6",
+    "jsdom": "^26.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
-    "vite-plugin-dts": "^4.5.4"
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^3.2.4"
   }
 }

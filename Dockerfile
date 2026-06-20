@@ -1,4 +1,14 @@
-# ROS2 Humble + Node.js 20 image for ros-panel server
+# ── frontend-test stage (plain Node — no ROS2 needed) ────────────────
+FROM node:20-slim AS frontend-test
+
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install
+COPY tsconfig.json vite.config.ts ./
+COPY src/ ./src/
+CMD ["npm", "run", "test:components"]
+
+# ── ROS2 Humble + Node.js 20 image for ros-panel server ──────────────
 FROM ros:humble AS base
 
 SHELL ["/bin/bash", "-c"]

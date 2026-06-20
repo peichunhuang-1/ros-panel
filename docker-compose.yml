@@ -34,5 +34,44 @@ services:
     profiles:
       - test
 
+  frontend-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-test
+    volumes:
+      - ./src:/app/src
+      - ./vite.config.ts:/app/vite.config.ts
+    profiles:
+      - frontend-test
+
+  demo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend-test
+    volumes:
+      - ./src:/app/src
+      - ./index.html:/app/index.html
+      - ./vite.config.ts:/app/vite.config.ts
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_ROS_SERVER_URL: "http://localhost:3000"
+    command: ["npm", "run", "demo"]
+    profiles:
+      - demo
+
+  integration-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./server:/app/server
+      - ./test:/app/test
+    command: ["bash", "/app/test/integration.sh"]
+    profiles:
+      - integration-test
+
 volumes:
   schema-cache:

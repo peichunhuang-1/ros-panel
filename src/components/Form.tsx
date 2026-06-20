@@ -30,7 +30,7 @@ export function RosForm({ schema, type, name, serverUrl, onResponse, onError }: 
 
   const handleSubmit = () => {
     axios
-      .post(`${serverUrl}/call_api`, { type, name, form: formData })
+      .post(`${serverUrl}/call/service`, { type, name, form: formData })
       .then((res) => onResponse?.(res.data))
       .catch((err: Error) => onError?.(err));
   };
