@@ -19,5 +19,20 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./server:/app/server
+      - ./test:/app/test
+      - ./test-output:/app/test-output
+    environment:
+      SCHEMA_GEN_OUTPUT: /app/test-output
+    command: >
+      /bin/bash -c "source /opt/ros/humble/setup.bash && npm test"
+    profiles:
+      - test
+
 volumes:
   schema-cache:
