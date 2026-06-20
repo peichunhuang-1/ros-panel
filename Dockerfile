@@ -3,10 +3,12 @@ FROM ros:humble AS base
 
 SHELL ["/bin/bash", "-c"]
 
-# Install Node.js 20
+# Install Node.js 20 and extra ROS2 packages used in tests
 RUN apt-get update && apt-get install -y curl ca-certificates && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
+    apt-get install -y nodejs \
+        ros-humble-example-interfaces \
+        ros-humble-nav2-msgs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -19,9 +21,10 @@ RUN npm install --omit=dev 2>/dev/null || npm install
 RUN source /opt/ros/humble/setup.bash && \
     node node_modules/rclnodejs/scripts/generate_messages.js
 
-# Copy server source
+# Copy server source and tests
 COPY bin/ ./bin/
 COPY server/ ./server/
+COPY test/ ./test/
 
 ENV PORT=3000
 ENV SCHEMA_DIR=/app/.ros-panel-schemas

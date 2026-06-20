@@ -3,3 +3,4 @@ dist/
 .ros-panel-schemas/
 *.local
 .DS_Store
+test-output/

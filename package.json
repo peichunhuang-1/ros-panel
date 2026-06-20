@@ -25,7 +25,8 @@
     "build": "tsc -b && vite build",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "server": "node bin/server.js"
+    "server": "node bin/server.js",
+    "test": "node --test test/*.test.js"
   },
   "peerDependencies": {
     "react": ">=18",
