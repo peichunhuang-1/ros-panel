@@ -76,6 +76,7 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
     next();
   });
 
+  app.get('/', (_, res) => res.json({ status: 'ok', endpoints: ['/nodes', '/topics', '/services'] }));
   app.get('/nodes',    (_, res) => res.json(node.getNodeNames()));
   app.get('/topics',   (_, res) => res.json(node.getTopicNamesAndTypes()));
   app.get('/services', (_, res) => res.json(node.getServiceNamesAndTypes()));
