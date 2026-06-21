@@ -1,6 +1,6 @@
 {
   "name": "ros-panel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ROS2 control panel React components — auto-discovery and prop-driven topic/service forms",
   "license": "MIT",
   "author": "peichunhuang-1",
