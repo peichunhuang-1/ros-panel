@@ -6,13 +6,15 @@ import {
   ApartmentOutlined,
   MessageOutlined,
   CustomerServiceOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useRos } from '../context/RosContext';
 import { RosForm } from './Form';
+import { ActionCaller } from './ActionCaller';
 
 const { Sider, Content } = Layout;
 
-type PanelType = 'topic' | 'service';
+type PanelType = 'topic' | 'service' | 'action';
 
 interface ActivePanel {
   type: PanelType;
@@ -36,6 +38,7 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
   const [nodes, setNodes]       = useState<string[]>([]);
   const [topics, setTopics]     = useState<RosEntry[]>([]);
   const [services, setServices] = useState<RosEntry[]>([]);
+  const [actions, setActions]   = useState<RosEntry[]>([]);
   const [active, setActive]     = useState<ActivePanel | null>(null);
   const [connected, setConnected] = useState(false);
   const activeRef               = useRef<ActivePanel | null>(null);
@@ -46,11 +49,13 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
         axios.get(`${serverUrl}/nodes`),
         axios.get(`${serverUrl}/topics`),
         axios.get(`${serverUrl}/services`),
+        axios.get(`${serverUrl}/actions`),
       ])
-        .then(([n, t, s]) => {
+        .then(([n, t, s, a]) => {
           setNodes(n.data as string[]);
           setTopics(t.data as RosEntry[]);
           setServices(s.data as RosEntry[]);
+          setActions(a.data as RosEntry[]);
           setConnected(true);
         })
         .catch(() => setConnected(false));
@@ -124,10 +129,20 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
         label: <Tooltip title={s.name} placement="right"><span className="rp-menu-item">{s.name}</span></Tooltip>,
       })),
     },
+    {
+      key: 'actions',
+      label: sectionLabel(<ThunderboltOutlined />, 'Actions', actions.length),
+      children: actions.map((a) => ({
+        key: a.name,
+        label: <Tooltip title={a.name} placement="right"><span className="rp-menu-item">{a.name}</span></Tooltip>,
+      })),
+    },
   ];
 
   const typeTag = active?.type === 'topic'
     ? <Tag color="green">publish</Tag>
+    : active?.type === 'action'
+    ? <Tag color="purple">action</Tag>
     : <Tag color="blue">call</Tag>;
 
   return (
@@ -160,8 +175,9 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
           style={{ flex: 1, borderRight: 0, overflow: 'auto' }}
           onClick={({ key, keyPath }) => {
             const section = keyPath[1];
-            if (section === 'topics') handleSelect('topic', key);
+            if (section === 'topics')   handleSelect('topic',   key);
             else if (section === 'services') handleSelect('service', key);
+            else if (section === 'actions')  handleSelect('action',  key);
           }}
         />
       </Sider>
@@ -175,14 +191,22 @@ export function RosControlPanel({ style, onResponse, onError }: RosControlPanelP
                 {active.name}
               </Typography.Text>
             </Space>
-            <RosForm
-              schema={active.schema}
-              type={active.type}
-              name={active.name}
-              serverUrl={serverUrl}
-              onResponse={onResponse}
-              onError={onError}
-            />
+            {active.type === 'action' ? (
+              <ActionCaller
+                schema={active.schema as unknown as import('./ActionCaller').ActionSchema}
+                name={active.name}
+                serverUrl={serverUrl}
+              />
+            ) : (
+              <RosForm
+                schema={active.schema}
+                type={active.type as 'topic' | 'service'}
+                name={active.name}
+                serverUrl={serverUrl}
+                onResponse={onResponse}
+                onError={onError}
+              />
+            )}
           </div>
         ) : (
           <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

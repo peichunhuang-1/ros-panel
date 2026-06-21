@@ -25,6 +25,10 @@ const templates: Partial<TemplatesType> = {
   ObjectFieldTemplate,
   ArrayFieldTemplate,
   ArrayFieldItemTemplate,
+  // Suppress the default ArrayFieldItemButtonsTemplate — our ArrayFieldItemTemplate
+  // already renders Up/Down/Remove directly from buttonsProps, so the default
+  // buttons template (which adds a second Add button) must be a no-op.
+  ArrayFieldItemButtonsTemplate: () => null,
   ButtonTemplates: {
     AddButton,
     RemoveButton,
