@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import RjsfForm from '@rjsf/core';
-import type { RJSFSchema, RegistryWidgetsType, TemplatesType } from '@rjsf/utils';
+import type { RJSFSchema, RegistryWidgetsType, TemplatesType, UiSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import { Alert, Badge, Button, Space, Spin, Typography } from 'antd';
 import { SendOutlined, StopOutlined } from '@ant-design/icons';
@@ -37,12 +37,14 @@ export interface ActionCallerProps {
   schema: ActionSchema;
   name: string;
   serverUrl: string;
+  uiSchema?: UiSchema;
+  defaultFormData?: unknown;
 }
 
 type Status = 'idle' | 'running' | 'done' | 'error';
 
-export function ActionCaller({ schema, name, serverUrl }: ActionCallerProps) {
-  const [formData, setFormData] = useState<unknown>({});
+export function ActionCaller({ schema, name, serverUrl, uiSchema, defaultFormData }: ActionCallerProps) {
+  const [formData, setFormData] = useState<unknown>(defaultFormData ?? {});
   const [status, setStatus] = useState<Status>('idle');
   const [feedbackLog, setFeedbackLog] = useState<unknown[]>([]);
   const [result, setResult] = useState<unknown>(null);
@@ -116,6 +118,7 @@ export function ActionCaller({ schema, name, serverUrl }: ActionCallerProps) {
     <div>
       <RjsfForm
         schema={goalSchema}
+        uiSchema={uiSchema}
         formData={formData}
         onChange={(e) => setFormData(e.formData)}
         validator={validator}

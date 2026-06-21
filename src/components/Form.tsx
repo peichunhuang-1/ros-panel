@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import RjsfForm from '@rjsf/core';
-import type { RJSFSchema, RegistryWidgetsType, TemplatesType } from '@rjsf/utils';
+import type { RJSFSchema, RegistryWidgetsType, TemplatesType, UiSchema } from '@rjsf/utils';
 import validator from '@rjsf/validator-ajv8';
 import axios from 'axios';
 import { Alert, Typography } from 'antd';
@@ -43,12 +43,14 @@ export interface RosFormProps {
   type: 'topic' | 'service';
   name: string;
   serverUrl: string;
+  uiSchema?: UiSchema;
+  defaultFormData?: unknown;
   onResponse?: (data: unknown) => void;
   onError?: (error: Error) => void;
 }
 
-export function RosForm({ schema, type, name, serverUrl, onResponse, onError }: RosFormProps) {
-  const [formData, setFormData] = useState<unknown>({});
+export function RosForm({ schema, type, name, serverUrl, uiSchema, defaultFormData, onResponse, onError }: RosFormProps) {
+  const [formData, setFormData] = useState<unknown>(defaultFormData ?? {});
   const [response, setResponse] = useState<unknown>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -72,6 +74,7 @@ export function RosForm({ schema, type, name, serverUrl, onResponse, onError }: 
     <div>
       <RjsfForm
         schema={normalizedSchema}
+        uiSchema={uiSchema}
         formData={formData}
         onChange={(e) => setFormData(e.formData)}
         validator={validator}
