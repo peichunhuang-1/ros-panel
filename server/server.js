@@ -1,7 +1,9 @@
 import rclnodejs from 'rclnodejs';
 import express from 'express';
 import cors from 'cors';
-import { readMsgSchema, readSrvSchema } from './schema_gen.js';
+import * as fs from 'fs';
+import * as path from 'path';
+import { readMsgSchema, readSrvSchema, generateAllSchemas, parseMsgFields, parseSrvFields, parseActionFields } from './schema_gen.js';
 
 const managed = {};
 let node = null;
@@ -79,6 +81,57 @@ export async function startServer({ port = 3000, schemaDir, corsOrigins = ['http
   app.get('/nodes',    (_, res) => res.json(node.getNodeNames()));
   app.get('/topics',   (_, res) => res.json(node.getTopicNamesAndTypes()));
   app.get('/services', (_, res) => res.json(node.getServiceNamesAndTypes()));
+
+  // Schema discovery endpoints for the VSCode extension
+  app.get('/schemas/list', (_, res) => {
+    const prefixPaths = (process.env.AMENT_PREFIX_PATH || '').split(':').filter(Boolean);
+    const result = { msg: [], srv: [], action: [] };
+    for (const prefix of prefixPaths) {
+      const shareDir = path.join(prefix, 'share');
+      if (!fs.existsSync(shareDir)) continue;
+      for (const pkgName of fs.readdirSync(shareDir)) {
+        for (const type of ['msg', 'srv', 'action']) {
+          const typeDir = path.join(shareDir, pkgName, type);
+          if (!fs.existsSync(typeDir)) continue;
+          const files = fs.readdirSync(typeDir).filter((f) => f.endsWith(`.${type}`));
+          for (const f of files) {
+            result[type].push({ pkg: pkgName, name: f.replace(`.${type}`, '') });
+          }
+        }
+      }
+    }
+    res.json(result);
+  });
+
+  app.get('/schemas/get', async (req, res) => {
+    const { type, pkg, name } = req.query;
+    try {
+      let schema = {};
+      if (type === 'msg') {
+        await parseMsgFields(schema, pkg, `${name}.msg`);
+      } else if (type === 'srv') {
+        await parseSrvFields(schema, pkg, `${name}.srv`);
+      } else if (type === 'action') {
+        await parseActionFields(schema, pkg, `${name}.action`);
+      } else {
+        return res.status(400).json({ error: 'type must be msg, srv, or action' });
+      }
+      res.json(schema);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/schemas/generate', async (req, res) => {
+    const { outputDir } = req.body;
+    if (!outputDir) return res.status(400).json({ error: 'outputDir required' });
+    try {
+      await generateAllSchemas(outputDir);
+      res.json({ status: 'done', outputDir });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 
   app.post('/add/topic', async (req, res) => {
     try {

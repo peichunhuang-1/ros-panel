@@ -71,7 +71,7 @@ function matchEnumField(schema, constants, fieldname) {
   return false;
 }
 
-async function parseMsgFields(entity, pkg, msgFile) {
+export async function parseMsgFields(entity, pkg, msgFile) {
   const paths = findFiles(pkg, 'msg', msgFile);
   if (paths.length === 0) return;
 
@@ -127,7 +127,30 @@ async function parseMsgFields(entity, pkg, msgFile) {
   entity.properties = sorted;
 }
 
-async function parseSrvFields(entity, pkg, srvFile) {
+async function buildFields(fields) {
+  const out = {};
+  for (const field of fields) {
+    if (field.type.isArray) {
+      const item = field.type.isPrimitiveType
+        ? clone(rosToJsonSchemaType[field.type.type] || { type: 'string' })
+        : await readMsgSchemaFromDir(field.type.pkgName, field.type.type, null);
+      out[field.name] = { type: 'array', title: field.name, items: item };
+      if (field.type.arraySize > 0) {
+        out[field.name].minItems = field.type.arraySize;
+        out[field.name].maxItems = field.type.arraySize;
+      } else if (field.type.isUpperBound) {
+        out[field.name].maxItems = field.type.arraySize;
+      }
+    } else if (field.type.isPrimitiveType) {
+      out[field.name] = { ...clone(rosToJsonSchemaType[field.type.type] || { type: 'string' }), title: field.name };
+    } else {
+      out[field.name] = { ...(await readMsgSchemaFromDir(field.type.pkgName, field.type.type, null)), title: field.name };
+    }
+  }
+  return out;
+}
+
+export async function parseSrvFields(entity, pkg, srvFile) {
   const paths = findFiles(pkg, 'srv', srvFile);
   if (paths.length === 0) return;
 
@@ -136,29 +159,6 @@ async function parseSrvFields(entity, pkg, srvFile) {
     try { specs = await parser.parseServiceFile(pkg, p); break; } catch (_) {}
   }
   if (!specs) return;
-
-  const buildFields = async (fields) => {
-    const out = {};
-    for (const field of fields) {
-      if (field.type.isArray) {
-        const item = field.type.isPrimitiveType
-          ? clone(rosToJsonSchemaType[field.type.type] || { type: 'string' })
-          : await readMsgSchemaFromDir(field.type.pkgName, field.type.type, null);
-        out[field.name] = { type: 'array', title: field.name, items: item };
-        if (field.type.arraySize > 0) {
-          out[field.name].minItems = field.type.arraySize;
-          out[field.name].maxItems = field.type.arraySize;
-        } else if (field.type.isUpperBound) {
-          out[field.name].maxItems = field.type.arraySize;
-        }
-      } else if (field.type.isPrimitiveType) {
-        out[field.name] = { ...clone(rosToJsonSchemaType[field.type.type] || { type: 'string' }), title: field.name };
-      } else {
-        out[field.name] = { ...(await readMsgSchemaFromDir(field.type.pkgName, field.type.type, null)), title: field.name };
-      }
-    }
-    return out;
-  };
 
   entity.request  = await buildFields(specs.request.fields);
   entity.response = await buildFields(specs.response.fields);
@@ -172,6 +172,21 @@ async function readMsgSchemaFromDir(packageName, messageName, schemaDir) {
   const entity = {};
   await parseMsgFields(entity, packageName, `${messageName}.msg`);
   return entity;
+}
+
+export async function parseActionFields(entity, pkg, actionFile) {
+  const paths = findFiles(pkg, 'action', actionFile);
+  if (paths.length === 0) return;
+
+  let specs = null;
+  for (const p of paths) {
+    try { specs = await parser.parseActionFile(pkg, p); break; } catch (_) {}
+  }
+  if (!specs) return;
+
+  entity.goal     = await buildFields(specs.goal.fields);
+  entity.result   = await buildFields(specs.result.fields);
+  entity.feedback = await buildFields(specs.feedback.fields);
 }
 
 export async function generateAllSchemas(outputDir) {
@@ -206,6 +221,33 @@ export async function generateAllSchemas(outputDir) {
       }
     }
   }
+
+  const actionPackages = findAllPackages('action');
+  console.log(`[schema-gen] Found ${actionPackages.size} packages with actions`);
+  for (const [pkg, files] of actionPackages) {
+    for (const file of files) {
+      const name = file.replace('.action', '');
+      try {
+        const schema = {};
+        await parseActionFields(schema, pkg, file);
+        fs.writeFileSync(path.join(outputDir, `${pkg}__${name}.json`), JSON.stringify(schema, null, 2));
+      } catch (e) {
+        console.error(`[schema-gen] ✗ ${pkg}/${name}:`, e.message);
+      }
+    }
+  }
+}
+
+export async function readActionSchema(packageName, actionName, schemaDir) {
+  if (schemaDir) {
+    const cached = path.join(schemaDir, `${packageName}__${actionName}.json`);
+    if (fs.existsSync(cached)) return JSON.parse(fs.readFileSync(cached, 'utf-8'));
+  }
+  const paths = findFiles(packageName, 'action', `${actionName}.action`);
+  if (paths.length === 0) throw new Error(`Action file not found: ${packageName}/${actionName}`);
+  const schema = {};
+  await parseActionFields(schema, packageName, `${actionName}.action`);
+  return schema;
 }
 
 export async function readMsgSchema(packageName, messageName, schemaDir) {

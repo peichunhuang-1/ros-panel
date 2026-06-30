@@ -1,0 +1,68 @@
+{
+  "name": "ros2-ui-generator",
+  "displayName": "ROS2 UI Generator",
+  "description": "Generate custom HTML/JS UI panels for ROS2 messages, services, and actions using Claude AI",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ros2UiGenerator.open",
+        "title": "ROS2 UI Generator: Open Panel"
+      },
+      {
+        "command": "ros2UiGenerator.startServer",
+        "title": "ROS2 UI Generator: Start Backend Server"
+      }
+    ],
+    "configuration": {
+      "title": "ROS2 UI Generator",
+      "properties": {
+        "ros2UiGenerator.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:3000",
+          "description": "URL of the ros-panel backend server"
+        },
+        "ros2UiGenerator.claudeApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Anthropic Claude API key for UI generation",
+          "markdownDescription": "Your Anthropic API key. Get one at https://console.anthropic.com/"
+        },
+        "ros2UiGenerator.claudeModel": {
+          "type": "string",
+          "default": "claude-sonnet-4-6",
+          "enum": [
+            "claude-sonnet-4-6",
+            "claude-opus-4-8",
+            "claude-haiku-4-5-20251001"
+          ],
+          "description": "Claude model to use for UI generation"
+        },
+        "ros2UiGenerator.autoStartServer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start the ros-panel server when the extension activates"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.125.0",
+    "typescript": "~5.3"
+  }
+}
